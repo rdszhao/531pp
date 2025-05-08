@@ -41,3 +41,25 @@ for outdir, prefile in tqdm(filemap.items(), total=len(filemap)):
 	df['viewCount'] = df['viewCount'].apply(lambda x: extract(x, 'count')).astype(int, errors='ignore')
 	Path('/'.join(outdir.split('/')[:-1])).mkdir(parents=True, exist_ok=True)
 	df.to_csv(outdir)
+
+dfs = []
+for file in tqdm(outdirs):
+	try:
+		df = pd.read_csv(file, compression='gzip')
+		df = df.drop(columns=['Unnamed: 0', 'user',], errors='ignore')
+		dfs.append(df)
+	except:
+		print(f"{file} - error")
+		continue
+
+df = pd.concat(dfs)
+df['date'] = pd.to_datetime(df['date'])
+df = df.sort_values('date')
+df['week'] = df['date'].dt.isocalendar().week
+df = df.drop('year', axis=1)
+df = df.dropna(subset=['viewCount'])
+df = df.drop(columns=['id',  'date'])
+
+for week in tqdm(df['week'].unique()):
+	weekdf = df[df['week'] == week].drop('week', axis=1)
+	weekdf.to_csv(f"{processed_dir}/weekslite/{week}.csv.gz", compression='gzip', index=False)
